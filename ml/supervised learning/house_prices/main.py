@@ -9,7 +9,6 @@ import constants
 import data_investigation
 import preprocessing
 
-
 BASE_PATH = './resources'
 PATH_TO_TEST_DATA = f'{BASE_PATH}/test.csv'
 PATH_TO_TRAIN_DATA = f'{BASE_PATH}/train.csv'
@@ -20,7 +19,8 @@ def get_possible_features(houses_df: pd.DataFrame, exclude_thresholds=None):
     data_investigation.print_columns(houses_df)
 
     if exclude_thresholds is None:
-        exclude_thresholds = np.arange(constants.X_THRESHOLDS_START, constants.X_THRESHOLDS_END, constants.X_THRESHOLDS_STEP)
+        exclude_thresholds = np.arange(constants.X_THRESHOLDS_START, constants.X_THRESHOLDS_END,
+                                       constants.X_THRESHOLDS_STEP)
 
     for exclude_threshold in exclude_thresholds:
         X_with_threshold = data_investigation.get_features(houses_df, exclude_threshold)
@@ -61,7 +61,7 @@ def get_best_params(houses_df: pd.DataFrame, y, verbose=False):
             try:
                 pipeline = preprocessing.get_pipeline(possible_model, X_with_threshold)
                 X_train, X_valid, y_train, y_valid = train_test_split(X_with_threshold, y, train_size=0.8,
-                    test_size=0.2, random_state=1)
+                                                                      test_size=0.2, random_state=1)
                 mae_score = preprocessing.evaluate_pipeline(pipeline, X_train, y_train, X_valid, y_valid)
                 set_min_params(params, mae_score, exclude_threshold, n_estimator, verbose)
             except Exception:
