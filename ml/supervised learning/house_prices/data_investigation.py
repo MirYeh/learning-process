@@ -1,6 +1,7 @@
 import traceback
 
 import pandas as pd
+import numpy as np
 
 
 def print_columns(houses_df: pd.DataFrame):
@@ -18,12 +19,12 @@ def __get_excluded_features(houses_df: pd.DataFrame, exclude_threshold):
 	exclude_columns = {'Id': 'removed'}
 	for col in houses_df.columns:
 		col_value_count: pd.Series = houses_df[col].value_counts(normalize=True, dropna=False)
-		first_val = col_value_count.get(0)
+		first_val = col_value_count.values[0]
 		col_desc = houses_df[col].describe()
 
 		if first_val and first_val > exclude_threshold:
 			exclude_columns[col] = first_val
-		else:
+		elif houses_df[col].dtype == np.object:
 			count = col_desc['count']
 			try:
 				freq = col_desc['freq']/count
