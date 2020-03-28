@@ -35,35 +35,29 @@ def get_possible_random_forest_model(n_estimators=None):
         yield RandomForestRegressor(n_estimators=n_estimator, random_state=0), n_estimator
 
 
-def set_min_params(params, mae_score, exclude_threshold, n_estimator, verbose=False):
-    if verbose: print(f'Score: {mae_score:,.3f} \t threshold: {exclude_threshold}\t n_estimator: {n_estimator}')
-    if not params['min_score'] or params['min_score'] > mae_score:
-        params['min_score'], params['exclude_threshold'], params[
-            'n_estimator'] = mae_score, exclude_threshold, n_estimator
-        if verbose: print(f'> New min_score: {params["min_score"]}')
-
-
-def get_best_params(houses_df: pd.DataFrame, y, verbose=False):
+def get_best_params(X_train, X_valid, y_train, y_valid, verbose=False):
     """
     Try different params (feature threshold, random forest model estimators)
      and return params that get the minimum MAE error.
     """
     params = {
         'min_score': None,
-        'exclude_threshold': None,
-        'n_estimator': None
+        'pipeline': None
     }
 
-    for X_with_threshold, exclude_threshold in get_possible_features(houses_df):
+    for X_with_threshold, exclude_threshold in get_possible_features(X_train):
         if verbose: print(f'{"_" * 20} threshold: {exclude_threshold} {"_" * 20}')
         for possible_model, n_estimator in get_possible_random_forest_model():
             if verbose: print()
             try:
                 pipeline = preprocessing.get_pipeline(possible_model, X_with_threshold)
-                X_train, X_valid, y_train, y_valid = train_test_split(X_with_threshold, y, train_size=0.8,
-                                                                      test_size=0.2, random_state=1)
-                mae_score = preprocessing.evaluate_pipeline(pipeline, X_train, y_train, X_valid, y_valid)
-                set_min_params(params, mae_score, exclude_threshold, n_estimator, verbose)
+                mae_score = preprocessing.evaluate_pipeline(pipeline, X_with_threshold, y_train, X_valid, y_valid)
+
+                if verbose: print(f'Score: {mae_score:,.3f} \t threshold: {exclude_threshold}\t n_estimator: {n_estimator}')
+                if not params['min_score'] or params['min_score'] > mae_score:
+                    params['min_score'] = mae_score
+                    params['pipeline'] = pipeline
+                    if verbose: print(f'> New min_score: {params["min_score"]}')
             except Exception:
                 traceback.print_exc()
 
@@ -71,22 +65,17 @@ def get_best_params(houses_df: pd.DataFrame, y, verbose=False):
 
 
 def get_pipeline_and_score(houses_df: pd.DataFrame, y, verbose=False):
-    params = get_best_params(houses_df, y, verbose)
+    X_train, X_valid, y_train, y_valid = train_test_split(houses_df, y, train_size=0.8, test_size=0.2, random_state=1)
+    params = get_best_params(X_train, X_valid, y_train, y_valid, verbose)
 
-    model = RandomForestRegressor(n_estimators=params['n_estimator'], random_state=0)
-    X = data_investigation.get_features(houses_df, params['exclude_threshold'])
-    pipeline = preprocessing.get_pipeline(model, X)
-    X_train, X_valid, y_train, y_valid = train_test_split(X, y, train_size=0.8, test_size=0.2,
-                                                          random_state=1)
-    pipeline.fit(X_train, y_train)
-    return pipeline, params['min_score']
+    return params['pipeline'], params['min_score']
 
 
-def save_prediction_to_csv(houses_tests_df, label, pipeline, mae_score):
+def save_prediction_to_csv(houses_tests_df, label, pipeline, validation_min_score):
     preds_test = pipeline.predict(houses_tests_df)
 
     output = pd.DataFrame({'Id': houses_tests_df.Id, label: preds_test})
-    default_filename = f'submission-{mae_score}-mean'
+    default_filename = f'submission-{validation_min_score}-mean'
     filename = input(f'enter csv file name (default - "{default_filename}"): ') or default_filename
     output.to_csv(filename + '.csv', index=False)
 
@@ -97,8 +86,8 @@ def main():
     y = houses_df[LABEL]
     houses_df = houses_df.drop(LABEL, axis=1)
 
-    pipeline, min_score = get_pipeline_and_score(houses_df, y, verbose=True)
-    save_prediction_to_csv(houses_tests_df, LABEL, pipeline, min_score)
+    pipeline, validation_min_score = get_pipeline_and_score(houses_df, y, verbose=True)
+    save_prediction_to_csv(houses_tests_df, LABEL, pipeline, validation_min_score)
 
     print('Done')
 
