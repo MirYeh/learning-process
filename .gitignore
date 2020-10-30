@@ -9,4 +9,4 @@
 # sub-dirs
 *bin/
 *exclude/
-
+*/*/venv
